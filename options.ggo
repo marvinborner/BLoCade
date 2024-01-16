@@ -1,0 +1,8 @@
+package "BLoCade"
+version "1.0"
+purpose "Tool for converting BLoC to various targets"
+
+option "input" i "input file" string required
+option "output" o "output file" string optional
+option "verbose" v "enable debug logging output" flag off
+option "target" t "choose compilation target" string required
