@@ -4,7 +4,8 @@
 binary lambda calculus (BLC).
 
 BLoCade, the BLoC-aid, turns BLoC files back into executable files
-(targets). This is useful for [bruijn](https://bruijn.marvinborner.de),
+(targets). This is useful for [bruijn](https://bruijn.marvinborner.de)
+(see [wiki](https://bruijn.marvinborner.de/wiki/coding/compilation/)),
 benchmarking, or general term optimization.
 
 ## Targets
@@ -16,8 +17,8 @@ benchmarking, or general term optimization.
 -   BLC (unshared): Every BLoC entry gets reinserted into the original
     term. Do not use this if you want efficiency or small files. Flag
     `unbblc` (bits) and `unblc` (ASCII 0/1).
--   Planned: [Effekt](https://effekt-lang.org), Scala, HVM, C, LLVM, JS,
-    Haskell
+-   Planned: [Effekt](https://effekt-lang.org), Scala, HVM, C, NASM,
+    LLVM, JS, Haskell
 
 ## Benchmarks
 

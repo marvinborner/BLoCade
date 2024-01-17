@@ -7,7 +7,7 @@ TG = ctags
 BUILD = ${CURDIR}/build
 SRC = ${CURDIR}/src
 INC = ${CURDIR}/inc
-SRCS = $(wildcard $(SRC)/*.c) $(wildcard $(SRC)/*/*.c)
+SRCS = $(wildcard $(SRC)/*.c) $(wildcard $(SRC)/*/*.c) $(SRC)/cmdline.c
 OBJS = $(patsubst $(SRC)/%.c, $(BUILD)/%.o, $(SRCS))
 
 CFLAGS_DEBUG = -fsanitize=leak,undefined,address -g -O0
@@ -22,12 +22,9 @@ ifeq ($(PREFIX),)
     PREFIX := /usr/local
 endif
 
-all: genopts compile
+all: compile
 
 full: all sync
-
-genopts:
-	@gengetopt -i ${CURDIR}/options.ggo -G --output-dir=$(SRC)
 
 compile: $(BUILD) $(OBJS) $(BUILD)/blocade
 
@@ -41,7 +38,12 @@ sync: # Ugly hack
 	@$(MAKE) $(BUILD)/blocade --always-make --dry-run | grep -wE 'gcc|g\+\+' | grep -w '\-c' | jq -nR '[inputs|{directory:".", command:., file: match(" [^ ]+$$").string[1:]}]' >compile_commands.json
 	@$(TG) -R --exclude=.git --exclude=build .
 
-$(BUILD)/%.o: $(SRC)/%.c
+$(SRC)/cmdline.c:
+	@gengetopt -i ${CURDIR}/options.ggo -G --output-dir=$(BUILD)
+	@printf '%s\n%s\n%s\n%s' '#pragma GCC diagnostic push' '#pragma GCC diagnostic ignored "-Wcast-qual"' "$$(cat $(BUILD)/cmdline.c)" '#pragma GCC diagnostic pop' >$(SRC)/cmdline.c
+	@cp $(BUILD)/cmdline.h $(SRC)/cmdline.h
+
+$(BUILD)/%.o: $(SRC)/%.c | $(SRC)/cmdline.c
 	@mkdir -p $(@D)
 	@$(CC) -c -o $@ $(CFLAGS) $<
 
