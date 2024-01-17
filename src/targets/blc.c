@@ -9,18 +9,17 @@
 #include <parse.h>
 #include <log.h>
 
-static void fprint_unblc(struct term *term, struct bloc_parsed *bloc,
-			 FILE *file)
+static void fprint_blc(struct term *term, struct bloc_parsed *bloc, FILE *file)
 {
 	switch (term->type) {
 	case ABS:
 		fprintf(file, "00");
-		fprint_unblc(term->u.abs.term, bloc, file);
+		fprint_blc(term->u.abs.term, bloc, file);
 		break;
 	case APP:
 		fprintf(file, "01");
-		fprint_unblc(term->u.app.lhs, bloc, file);
-		fprint_unblc(term->u.app.rhs, bloc, file);
+		fprint_blc(term->u.app.lhs, bloc, file);
+		fprint_blc(term->u.app.rhs, bloc, file);
 		break;
 	case VAR:
 		for (int i = 0; i <= term->u.var.index; i++)
@@ -30,22 +29,21 @@ static void fprint_unblc(struct term *term, struct bloc_parsed *bloc,
 	case REF:
 		if (term->u.ref.index + 1 >= bloc->length)
 			fatal("invalid ref index %ld\n", term->u.ref.index);
-		fprint_unblc(
-			bloc->entries[bloc->length - term->u.ref.index - 2],
-			bloc, file);
+		fprint_blc(bloc->entries[bloc->length - term->u.ref.index - 2],
+			   bloc, file);
 		break;
 	default:
 		fatal("invalid type %d\n", term->type);
 	}
 }
 
-static void write_unblc(struct bloc_parsed *bloc, FILE *file)
+static void write_blc(struct bloc_parsed *bloc, FILE *file)
 {
-	fprint_unblc(bloc->entries[bloc->length - 1], bloc, file);
+	fprint_blc(bloc->entries[bloc->length - 1], bloc, file);
 	fprintf(file, "\n");
 }
 
-struct target_spec target_unblc = {
-	.name = "unblc",
-	.exec = write_unblc,
+struct target_spec target_blc = {
+	.name = "blc",
+	.exec = write_blc,
 };

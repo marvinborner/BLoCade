@@ -8,10 +8,14 @@
 
 extern struct target_spec target_unblc;
 extern struct target_spec target_unbblc;
+extern struct target_spec target_blc;
+extern struct target_spec target_bblc;
 
 static struct target_spec *targets[] = {
 	&target_unblc,
 	&target_unbblc,
+	&target_blc,
+	&target_bblc,
 };
 
 void exec_target(char *name, struct bloc_parsed *bloc, FILE *file)
@@ -26,7 +30,7 @@ void exec_target(char *name, struct bloc_parsed *bloc, FILE *file)
 
 	printf("available targets:\n");
 	for (int i = 0; i < count; i++)
-		printf("  %s\n", targets[i]->name);
+		printf("\t%s\n", targets[i]->name);
 
 	fatal("unknown target %s\n", name);
 }
