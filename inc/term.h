@@ -25,6 +25,7 @@ struct term {
 			size_t index;
 		} ref;
 	} u;
+	unsigned int meta; // arbitrary field for targets
 };
 
 struct term *new_term(term_type type);

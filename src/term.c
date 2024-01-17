@@ -14,6 +14,7 @@ struct term *new_term(term_type type)
 	if (!term)
 		fatal("out of memory!\n");
 	term->type = type;
+	term->meta = 0;
 	return term;
 }
 
