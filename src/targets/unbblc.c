@@ -47,9 +47,8 @@ static void fprint_unbblc(struct term *term, struct bloc_parsed *bloc,
 	case REF:
 		if (term->u.ref.index + 1 >= bloc->length)
 			fatal("invalid ref index %ld\n", term->u.ref.index);
-		fprint_unbblc(
-			bloc->entries[bloc->length - term->u.ref.index - 2],
-			bloc, file, byte, bit);
+		fprint_unbblc(bloc->entries[term->u.ref.index], bloc, file,
+			      byte, bit);
 		break;
 	default:
 		fatal("invalid type %d\n", term->type);

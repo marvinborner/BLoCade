@@ -1,0 +1,17 @@
+#!/bin/sh
+
+set -e
+
+FAIL="\033[0;31m[FAIL]\033[0m "
+SUCC="\033[0;32m[SUCC]\033[0m "
+
+rm -f ../build/*.out ../build/*.blc ../build/*.bloc
+
+for file in *.blc; do
+	bloc --from-blc -i "$file" -o ../build/"$file".bloc
+	../build/blocade -i ../build/"$file".bloc -t blc -o ../build/"$file".bloc.blc
+	bruijn -E "$file" &>../build/"$file".out
+	bruijn -E ../build/"$file".bloc.blc &>../build/"$file".bloc.blc.out
+	cmp ../build/"$file".out ../build/"$file".bloc.blc.out && printf "$SUCC" || printf "$FAIL"
+	echo "blc res cmp on $file"
+done

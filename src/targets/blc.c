@@ -18,20 +18,20 @@
 
 static void fprint_blc_substituted(struct term *term, struct bloc_parsed *bloc,
 				   size_t *positions_inv, void **closed,
-				   int depth, FILE *file)
+				   int depth, size_t position, FILE *file)
 {
 	switch (term->type) {
 	case ABS:
 		fprintf(file, "00");
 		fprint_blc_substituted(term->u.abs.term, bloc, positions_inv,
-				       closed, depth + 1, file);
+				       closed, depth + 1, position, file);
 		break;
 	case APP:
 		fprintf(file, "01");
 		fprint_blc_substituted(term->u.app.lhs, bloc, positions_inv,
-				       closed, depth, file);
+				       closed, depth, position, file);
 		fprint_blc_substituted(term->u.app.rhs, bloc, positions_inv,
-				       closed, depth, file);
+				       closed, depth, position, file);
 		break;
 	case VAR:
 		for (int i = 0; i <= term->u.var.index; i++)
@@ -42,17 +42,18 @@ static void fprint_blc_substituted(struct term *term, struct bloc_parsed *bloc,
 		if (term->u.ref.index + 1 >= bloc->length)
 			fatal("invalid ref index %ld\n", term->u.ref.index);
 
-		int reffed = bloc->length - term->u.ref.index - 2;
-		if (closed[reffed]) {
-			debug("closed ref %d\n", reffed);
-			int index = depth + positions_inv[reffed];
+		if (closed[term->u.ref.index]) {
+			int index =
+				depth +
+				(positions_inv[term->u.ref.index] - position) -
+				1;
 			for (int i = 0; i <= index; i++)
 				fprintf(file, "1");
 			fprintf(file, "0");
 		} else {
-			fprint_blc_substituted(bloc->entries[reffed], bloc,
-					       positions_inv, closed, depth,
-					       file);
+			fprint_blc_substituted(bloc->entries[term->u.ref.index],
+					       bloc, positions_inv, closed,
+					       depth, position, file);
 		}
 		break;
 	default:
@@ -66,26 +67,25 @@ static void fprint_blc(size_t *positions, void *closed,
 	size_t *positions_inv =
 		calloc(bloc->length * sizeof(*positions_inv), 1);
 
+	// find abstraction count (end) and write header
 	size_t end = 0;
-	for (size_t i = 0; i < bloc->length; i++) {
-		if (!positions[i]) {
-			end = i;
+	while (1) {
+		end++;
+		if (end >= bloc->length || !positions[end])
 			break;
-		}
-		positions_inv[bloc->length - positions[i]] = i;
 		fprintf(file, "0100"); // ([
-		/* fprintf(file, "(["); */
 	}
 
-	/* fprintf(file, "0"); */
+	// create inv, s.t. ref inc0 -> pos lr
+	for (size_t i = 0; i < end; i++) {
+		debug("%ld: %ld\n", positions[i] - 1, end - i - 1);
+		positions_inv[positions[i] - 1] = end - i - 1;
+	}
 
 	for (size_t i = end; i > 0; i--) {
-		/* fprintf(file, "]"); // implicit */
-		fprint_blc_substituted(
-			bloc->entries[bloc->length - positions[i - 1]], bloc,
-			positions_inv, closed, 0, file);
-		/* fprintf(file, "<%ld>", bloc->length - positions[i - 1]); */
-		/* fprintf(file, ")"); // implicit */
+		fprint_blc_substituted(bloc->entries[positions[i - 1] - 1],
+				       bloc, positions_inv, closed, 0, end - i,
+				       file);
 	}
 
 	free(positions_inv);
@@ -107,7 +107,7 @@ static void bitmap_deps(struct bloc_parsed *bloc, char *bitmap,
 	case REF:
 		if (term->u.ref.index + 1 >= bloc->length)
 			fatal("invalid ref index %ld\n", term->u.ref.index);
-		bitmap[bloc->length - term->u.ref.index - 2] = 1;
+		bitmap[term->u.ref.index] = 1;
 		break;
 	default:
 		fatal("invalid type %d\n", term->type);
@@ -134,8 +134,7 @@ static unsigned int annotate(struct bloc_parsed *bloc, struct term *term,
 	case REF:
 		if (term->u.ref.index + 1 >= bloc->length)
 			fatal("invalid ref index %ld\n", term->u.ref.index);
-		struct term *sub =
-			bloc->entries[bloc->length - term->u.ref.index - 2];
+		struct term *sub = bloc->entries[term->u.ref.index];
 		return annotate(bloc, sub, depth);
 	default:
 		fatal("invalid type %d\n", term->type);
@@ -166,7 +165,7 @@ static void visit(char **bitmaps, char *marks, size_t *positions,
 	marks[n] &= ~TEMPORARY_MARK;
 	marks[n] |= PERMANENT_MARK;
 
-	positions[*position] = length - n; // deliberate offset of +2
+	positions[*position] = n + 1;
 	(*position)++;
 }
 
@@ -210,10 +209,8 @@ static void write_blc(struct bloc_parsed *bloc, FILE *file)
 
 	size_t *positions = topological_sort(bitmaps, bloc->length);
 	fprint_blc(positions, bitmaps, bloc, file);
-	/* fprintf(file, "\n"); */
 
 	for (size_t i = 0; i < bloc->length; i++) {
-		/* printf("%ld: %ld, ", i, positions[i]); */
 		if (bitmaps[i])
 			free(bitmaps[i]);
 	}

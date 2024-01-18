@@ -17,18 +17,19 @@
 // 00MN -> application of M and N
 // 1X0 -> bruijn index, amount of 1s in X
 // 011I -> 2B index to entry
-static struct term *parse_bloc_bblc(const char *term, size_t *bit)
+static struct term *parse_bloc_bblc(const char *term, size_t length,
+				    size_t *bit)
 {
 	struct term *res = 0;
 	if (!BIT_AT(*bit) && BIT_AT(*bit + 1) && !BIT_AT(*bit + 2)) {
 		(*bit) += 3;
 		res = new_term(ABS);
-		res->u.abs.term = parse_bloc_bblc(term, bit);
+		res->u.abs.term = parse_bloc_bblc(term, length, bit);
 	} else if (!BIT_AT(*bit) && !BIT_AT(*bit + 1)) {
 		(*bit) += 2;
 		res = new_term(APP);
-		res->u.app.lhs = parse_bloc_bblc(term, bit);
-		res->u.app.rhs = parse_bloc_bblc(term, bit);
+		res->u.app.lhs = parse_bloc_bblc(term, length, bit);
+		res->u.app.rhs = parse_bloc_bblc(term, length, bit);
 	} else if (BIT_AT(*bit)) {
 		const size_t cur = *bit;
 		while (BIT_AT(*bit))
@@ -49,10 +50,12 @@ static struct term *parse_bloc_bblc(const char *term, size_t *bit)
 			index |= BIT_AT(*bit) << i;
 			(*bit) += 1;
 		}
-		res->u.ref.index = index;
+
+		// normalize to entry index
+		res->u.ref.index = length - index - 2;
 	} else {
 		(*bit)++;
-		res = parse_bloc_bblc(term, bit);
+		res = parse_bloc_bblc(term, length, bit);
 	}
 	return res;
 }
@@ -73,8 +76,8 @@ struct bloc_parsed *parse_bloc(const void *bloc)
 	const struct bloc_entry *current = (const void *)&header->entries;
 	for (size_t i = 0; i < parsed->length; i++) {
 		size_t len = 0;
-		parsed->entries[i] =
-			parse_bloc_bblc((const char *)current, &len);
+		parsed->entries[i] = parse_bloc_bblc((const char *)current,
+						     parsed->length, &len);
 		current =
 			(const struct bloc_entry *)(((const char *)current) +
 						    (len / 8) + (len % 8 != 0));
