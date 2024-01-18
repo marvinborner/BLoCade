@@ -7,6 +7,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include <stdio.h>
 
 #include <target.h>
@@ -47,6 +48,11 @@ static void fprint_blc_substituted(struct term *term, struct bloc_parsed *bloc,
 				depth +
 				(positions_inv[term->u.ref.index] - position) -
 				1;
+			debug("index=%d depth=%ld ref=%ld inv=%ld pos=%ld sub=%ld\n",
+			      index, depth, term->u.ref.index,
+			      positions_inv[term->u.ref.index], position,
+			      positions_inv[term->u.ref.index] - position);
+			assert(index >= 0);
 			for (int i = 0; i <= index; i++)
 				fprintf(file, "1");
 			fprintf(file, "0");
@@ -91,39 +97,19 @@ static void fprint_blc(size_t *positions, void *closed,
 	free(positions_inv);
 }
 
-static void bitmap_deps(struct bloc_parsed *bloc, char *bitmap,
-			struct term *term)
-{
-	switch (term->type) {
-	case ABS:
-		bitmap_deps(bloc, bitmap, term->u.abs.term);
-		break;
-	case APP:
-		bitmap_deps(bloc, bitmap, term->u.app.lhs);
-		bitmap_deps(bloc, bitmap, term->u.app.rhs);
-		break;
-	case VAR:
-		break;
-	case REF:
-		if (term->u.ref.index + 1 >= bloc->length)
-			fatal("invalid ref index %ld\n", term->u.ref.index);
-		bitmap[term->u.ref.index] = 1;
-		break;
-	default:
-		fatal("invalid type %d\n", term->type);
-	}
-}
-
 // TODO: memoize META_CLOSED with term->meta (more complex than you'd think!)
+// TODO: memoize bitmap deps (should be easy)
 static unsigned int annotate(struct bloc_parsed *bloc, struct term *term,
-			     int depth)
+			     char *bitmap, int depth)
 {
 	switch (term->type) {
 	case ABS:
-		return annotate(bloc, term->u.abs.term, depth + 1);
+		return annotate(bloc, term->u.abs.term, bitmap, depth + 1);
 	case APP:;
-		unsigned int left = annotate(bloc, term->u.app.lhs, depth);
-		unsigned int right = annotate(bloc, term->u.app.rhs, depth);
+		unsigned int left =
+			annotate(bloc, term->u.app.lhs, bitmap, depth);
+		unsigned int right =
+			annotate(bloc, term->u.app.rhs, bitmap, depth);
 		if ((left & META_OPEN) || (right & META_OPEN))
 			return META_OPEN;
 		return META_CLOSED;
@@ -134,8 +120,9 @@ static unsigned int annotate(struct bloc_parsed *bloc, struct term *term,
 	case REF:
 		if (term->u.ref.index + 1 >= bloc->length)
 			fatal("invalid ref index %ld\n", term->u.ref.index);
-		struct term *sub = bloc->entries[term->u.ref.index];
-		return annotate(bloc, sub, depth);
+		bitmap[term->u.ref.index] = 1;
+		return annotate(bloc, bloc->entries[term->u.ref.index], bitmap,
+				depth);
 	default:
 		fatal("invalid type %d\n", term->type);
 	}
@@ -196,14 +183,13 @@ static void write_blc(struct bloc_parsed *bloc, FILE *file)
 {
 	char **bitmaps = malloc(bloc->length * sizeof(*bitmaps));
 	for (size_t i = 0; i < bloc->length; i++) {
-		unsigned int meta = annotate(bloc, bloc->entries[i], 0);
+		char *bitmap = calloc(bloc->length, 1);
+		unsigned int meta = annotate(bloc, bloc->entries[i], bitmap, 0);
 		if (!(meta & META_CLOSED)) {
-			bitmaps[i] = 0;
+			free(bitmap);
+			bitmaps[i] = 0; // won't be needed
 			continue;
 		}
-
-		char *bitmap = calloc(bloc->length, 1);
-		bitmap_deps(bloc, bitmap, bloc->entries[i]);
 		bitmaps[i] = bitmap;
 	}
 

@@ -40,7 +40,6 @@ static void fprint_unblc(struct term *term, struct bloc_parsed *bloc,
 static void write_unblc(struct bloc_parsed *bloc, FILE *file)
 {
 	fprint_unblc(bloc->entries[bloc->length - 1], bloc, file);
-	fprintf(file, "\n");
 }
 
 struct target_spec target_unblc = {
