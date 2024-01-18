@@ -3,7 +3,7 @@
 set -e
 
 FAIL="\033[0;31m[FAIL]\033[0m "
-SUCC="\033[0;32m[SUCC]\033[0m "
+SUCC="\033[0;32m[ OK ]\033[0m "
 
 rm -f ../build/*.out ../build/*.blc ../build/*.bloc
 
@@ -14,4 +14,37 @@ for file in *.blc; do
 	bruijn -E ../build/"$file".bloc.blc &>../build/"$file".bloc.blc.out
 	cmp ../build/"$file".out ../build/"$file".bloc.blc.out && printf "$SUCC" || printf "$FAIL"
 	echo "blc res cmp on $file"
+
+	../build/blocade -i ../build/"$file".bloc -t unblc -o ../build/"$file".bloc.unblc
+	cmp ../build/"$file".bloc.unblc "$file" && printf "$SUCC" || printf "$FAIL"
+	echo "unblc inp cmp on $file"
+done
+
+for file in *.blc.io; do
+	bloc --from-blc -i "$file" -o ../build/"$file".bloc
+	../build/blocade -i ../build/"$file".bloc -t blc -o ../build/"$file".bloc.blc
+	cat "$file".in | bruijn -E "$file" &>../build/"$file".out
+	cat "$file".in | bruijn -E ../build/"$file".bloc.blc &>../build/"$file".bloc.blc.out
+	cmp ../build/"$file".out ../build/"$file".bloc.blc.out && printf "$SUCC" || printf "$FAIL"
+	echo "blc res cmp on $file"
+
+	../build/blocade -i ../build/"$file".bloc -t unblc -o ../build/"$file".bloc.unblc
+	cmp ../build/"$file".bloc.unblc "$file" && printf "$SUCC" || printf "$FAIL"
+	echo "unblc inp cmp on $file"
+done
+
+echo
+echo "----------"
+echo "Benchmarks"
+echo "----------"
+echo
+
+INDENT=8
+printf "%-${INDENT}s\tbloc\tunbblc\tbblc\n" "file"
+for file in *.blc.io *.blc; do
+	base="$(basename "$(basename "$file" .blc)" .blc.io)" # beautiful
+	unblc=$(stat -c%s ../build/"$file".bloc.unblc) # minus 1 to remove the newline
+	bloc=$(($(stat -c%s ../build/"$file".bloc) * 8)) # times 8 to make it comparable
+	blc=$(stat -c%s ../build/"$file".bloc.blc)
+	printf "%-${INDENT}s\t%s\t%s\t%s\n" "$base" "$bloc" "$unblc" "$blc"
 done

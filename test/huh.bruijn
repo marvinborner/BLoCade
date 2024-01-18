@@ -1,0 +1,18 @@
+:import std/Number/Ternary .
+:import std/List .
+
+# main map [ternary! (0 - 0)]
+
+# main [sub (+1b) (+1b)]
+
+# main [pad (+1b) (+2b)]
+
+# main [pad-right (+6) 'a' "hah"]
+
+# main [|((+6) - ∀"hah")]
+
+# main [(+1) - ∀"aa"]
+
+# main [∀([0] : ([0] : {}[0])) - (+0)]
+
+main [∀([0] : ([0] : {}[0])) + (+0)]
