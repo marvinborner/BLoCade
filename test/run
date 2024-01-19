@@ -1,6 +1,6 @@
 #!/bin/sh
 
-set -e
+# set -e
 
 FAIL="\033[0;31m[FAIL]\033[0m "
 SUCC="\033[0;32m[ OK ]\033[0m "
@@ -10,10 +10,16 @@ rm -f ../build/*.out ../build/*.blc ../build/*.bloc
 for file in *.blc; do
 	bloc --from-blc -i "$file" -o ../build/"$file".bloc
 	../build/blocade -i ../build/"$file".bloc -t blc -o ../build/"$file".bloc.blc
+	../build/blocade -i ../build/"$file".bloc -t bblc -o ../build/"$file".bloc.bblc
 	bruijn -E "$file" &>../build/"$file".out
+
 	bruijn -E ../build/"$file".bloc.blc &>../build/"$file".bloc.blc.out
 	cmp ../build/"$file".out ../build/"$file".bloc.blc.out && printf "$SUCC" || printf "$FAIL"
 	echo "blc res cmp on $file"
+
+	bruijn -e ../build/"$file".bloc.bblc &>../build/"$file".bloc.bblc.out
+	cmp ../build/"$file".out ../build/"$file".bloc.bblc.out && printf "$SUCC" || printf "$FAIL"
+	echo "bblc res cmp on $file"
 
 	../build/blocade -i ../build/"$file".bloc -t unblc -o ../build/"$file".bloc.unblc
 	cmp ../build/"$file".bloc.unblc "$file" && printf "$SUCC" || printf "$FAIL"
@@ -23,10 +29,16 @@ done
 for file in *.blc.io; do
 	bloc --from-blc -i "$file" -o ../build/"$file".bloc
 	../build/blocade -i ../build/"$file".bloc -t blc -o ../build/"$file".bloc.blc
+	../build/blocade -i ../build/"$file".bloc -t bblc -o ../build/"$file".bloc.bblc
 	cat "$file".in | bruijn -E "$file" &>../build/"$file".out
+
 	cat "$file".in | bruijn -E ../build/"$file".bloc.blc &>../build/"$file".bloc.blc.out
 	cmp ../build/"$file".out ../build/"$file".bloc.blc.out && printf "$SUCC" || printf "$FAIL"
 	echo "blc res cmp on $file"
+
+	cat "$file".in | bruijn -e ../build/"$file".bloc.bblc &>../build/"$file".bloc.bblc.out
+	cmp ../build/"$file".out ../build/"$file".bloc.bblc.out && printf "$SUCC" || printf "$FAIL"
+	echo "bblc res cmp on $file"
 
 	../build/blocade -i ../build/"$file".bloc -t unblc -o ../build/"$file".bloc.unblc
 	cmp ../build/"$file".bloc.unblc "$file" && printf "$SUCC" || printf "$FAIL"

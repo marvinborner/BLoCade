@@ -17,49 +17,76 @@
 #define META_CLOSED 0x1
 #define META_OPEN 0x2
 
-static void fprint_blc_substituted(struct term *term, struct bloc_parsed *bloc,
-				   size_t *positions_inv, void **closed,
-				   int depth, size_t position, FILE *file)
+struct context {
+	enum { WRITE_BITS, WRITE_ASCII } type;
+	FILE *file;
+	char *byte;
+	int *bit;
+
+	// general (constant) helper vars
+	size_t *positions_inv;
+	size_t position;
+	void **closed;
+	struct bloc_parsed *bloc;
+};
+
+static void write_context(struct context *context, const char *bits)
+{
+	if (context->type == WRITE_ASCII) {
+		fprintf(context->file, "%s", bits);
+		return;
+	}
+
+	// WRITE_BITS
+	for (const char *p = bits; *p; p++) {
+		if (*context->bit > 7) { // flush byte
+			fwrite(context->byte, 1, 1, context->file);
+			*context->byte = 0;
+			*context->bit = 0;
+		}
+
+		// TODO: which endianness should be default?
+		if (*p & 1)
+			*context->byte |= 1UL << *context->bit;
+		(*context->bit)++;
+	}
+}
+
+static void write_blc_substituted(struct term *term, int depth,
+				  struct context *context)
 {
 	switch (term->type) {
 	case ABS:
-		fprintf(file, "00");
-		fprint_blc_substituted(term->u.abs.term, bloc, positions_inv,
-				       closed, depth + 1, position, file);
+		write_context(context, "00");
+		write_blc_substituted(term->u.abs.term, depth + 1, context);
 		break;
 	case APP:
-		fprintf(file, "01");
-		fprint_blc_substituted(term->u.app.lhs, bloc, positions_inv,
-				       closed, depth, position, file);
-		fprint_blc_substituted(term->u.app.rhs, bloc, positions_inv,
-				       closed, depth, position, file);
+		write_context(context, "01");
+		write_blc_substituted(term->u.app.lhs, depth, context);
+		write_blc_substituted(term->u.app.rhs, depth, context);
 		break;
 	case VAR:
 		for (int i = 0; i <= term->u.var.index; i++)
-			fprintf(file, "1");
-		fprintf(file, "0");
+			write_context(context, "1");
+		write_context(context, "0");
 		break;
 	case REF:
-		if (term->u.ref.index + 1 >= bloc->length)
+		if (term->u.ref.index + 1 >= context->bloc->length)
 			fatal("invalid ref index %ld\n", term->u.ref.index);
 
-		if (closed[term->u.ref.index]) {
-			int index =
-				depth +
-				(positions_inv[term->u.ref.index] - position) -
-				1;
-			debug("index=%d depth=%ld ref=%ld inv=%ld pos=%ld sub=%ld\n",
-			      index, depth, term->u.ref.index,
-			      positions_inv[term->u.ref.index], position,
-			      positions_inv[term->u.ref.index] - position);
+		if (context->closed[term->u.ref.index]) {
+			int index = depth +
+				    (context->positions_inv[term->u.ref.index] -
+				     context->position) -
+				    1;
 			assert(index >= 0);
 			for (int i = 0; i <= index; i++)
-				fprintf(file, "1");
-			fprintf(file, "0");
+				write_context(context, "1");
+			write_context(context, "0");
 		} else {
-			fprint_blc_substituted(bloc->entries[term->u.ref.index],
-					       bloc, positions_inv, closed,
-					       depth, position, file);
+			write_blc_substituted(
+				context->bloc->entries[term->u.ref.index],
+				depth, context);
 		}
 		break;
 	default:
@@ -67,8 +94,8 @@ static void fprint_blc_substituted(struct term *term, struct bloc_parsed *bloc,
 	}
 }
 
-static void fprint_blc(size_t *positions, void *closed,
-		       struct bloc_parsed *bloc, FILE *file)
+static void write_blc_ordered(size_t *positions, void *closed,
+			      struct bloc_parsed *bloc, struct context *context)
 {
 	size_t *positions_inv =
 		calloc(bloc->length * sizeof(*positions_inv), 1);
@@ -79,7 +106,7 @@ static void fprint_blc(size_t *positions, void *closed,
 		end++;
 		if (end >= bloc->length || !positions[end])
 			break;
-		fprintf(file, "0100"); // ([
+		write_context(context, "0100"); // ([
 	}
 
 	// create inv, s.t. ref inc0 -> pos lr
@@ -88,10 +115,14 @@ static void fprint_blc(size_t *positions, void *closed,
 		positions_inv[positions[i] - 1] = end - i - 1;
 	}
 
+	context->positions_inv = positions_inv;
+	context->bloc = bloc;
+	context->closed = closed;
+
 	for (size_t i = end; i > 0; i--) {
-		fprint_blc_substituted(bloc->entries[positions[i - 1] - 1],
-				       bloc, positions_inv, closed, 0, end - i,
-				       file);
+		context->position = end - i;
+		write_blc_substituted(bloc->entries[positions[i - 1] - 1], 0,
+				      context);
 	}
 
 	free(positions_inv);
@@ -179,7 +210,7 @@ static size_t *topological_sort(char **bitmaps, size_t length)
 	return positions;
 }
 
-static void write_blc(struct bloc_parsed *bloc, FILE *file)
+static void write_blc(struct bloc_parsed *bloc, struct context *context)
 {
 	char **bitmaps = malloc(bloc->length * sizeof(*bitmaps));
 	for (size_t i = 0; i < bloc->length; i++) {
@@ -194,7 +225,7 @@ static void write_blc(struct bloc_parsed *bloc, FILE *file)
 	}
 
 	size_t *positions = topological_sort(bitmaps, bloc->length);
-	fprint_blc(positions, bitmaps, bloc, file);
+	write_blc_ordered(positions, bitmaps, bloc, context);
 
 	for (size_t i = 0; i < bloc->length; i++) {
 		if (bitmaps[i])
@@ -204,7 +235,36 @@ static void write_blc(struct bloc_parsed *bloc, FILE *file)
 	free(positions);
 }
 
+static void write_blc_ascii(struct bloc_parsed *bloc, FILE *file)
+{
+	struct context context = {
+		.type = WRITE_ASCII,
+		.file = file,
+	};
+	write_blc(bloc, &context);
+}
+
+static void write_blc_bits(struct bloc_parsed *bloc, FILE *file)
+{
+	char byte = 0;
+	int bit = 0;
+	struct context context = {
+		.type = WRITE_BITS,
+		.file = file,
+		.byte = &byte,
+		.bit = &bit,
+	};
+	write_blc(bloc, &context);
+	if (bit)
+		fwrite(&byte, 1, 1, file);
+}
+
 struct target_spec target_blc = {
 	.name = "blc",
-	.exec = write_blc,
+	.exec = write_blc_ascii,
+};
+
+struct target_spec target_bblc = {
+	.name = "bblc",
+	.exec = write_blc_bits,
 };

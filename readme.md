@@ -19,7 +19,7 @@ benchmarking, or general term optimization.
   `unbblc` (bits) and `unblc` (ASCII 0/1).
 - Planned: “normal” programming languages
 
-## Shared `bblc` benchmarks
+## Benchmarks
 
 Some deliberately unoptimized test cases from `test/`, evaluated using
 `./run` and measured in bits:
