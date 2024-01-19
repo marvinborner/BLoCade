@@ -28,9 +28,9 @@ void exec_target(char *name, struct bloc_parsed *bloc, FILE *file)
 		}
 	}
 
-	printf("available targets:\n");
+	fprintf(stderr, "available targets:\n");
 	for (int i = 0; i < count; i++)
-		printf("\t%s\n", targets[i]->name);
+		fprintf(stderr, "\t%s\n", targets[i]->name);
 
 	fatal("unknown target %s\n", name);
 }
