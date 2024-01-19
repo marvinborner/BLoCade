@@ -18,22 +18,24 @@
 static char *read_stdin(void)
 {
 	debug("reading from stdin\n");
-	char buffer[BUF_SIZE];
+	freopen(NULL, "rb", stdin);
 	size_t size = 1;
 	char *string = malloc(sizeof(char) * BUF_SIZE);
 	if (!string)
 		fatal("out of memory!\n");
-	string[0] = '\0';
-	while (fgets(buffer, BUF_SIZE, stdin)) {
-		char *old = string;
-		size += strlen(buffer);
-		string = realloc(string, size);
-		if (!string) {
-			free(old);
-			return 0;
+
+	char ch;
+	while (fread(&ch, sizeof(char), 1, stdin) == 1) {
+		if (size % BUF_SIZE == 0) {
+			string = realloc(string,
+					 sizeof(char) * (size + BUF_SIZE));
+			if (!string)
+				fatal("out of memory!\n");
 		}
-		strcat(string, buffer);
+		string[size - 1] = ch;
+		size++;
 	}
+	string[size - 1] = '\0';
 
 	if (ferror(stdin)) {
 		free(string);
