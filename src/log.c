@@ -14,7 +14,7 @@ void debug(const char *format, ...)
 	if (!debug_enabled)
 		return;
 
-	fprintf(stderr, "[DEBUG] ");
+	fprintf(stderr, "[DEBUG] BLoCade: ");
 
 	va_list ap;
 	va_start(ap, format);
@@ -29,7 +29,7 @@ void debug_enable(int enable)
 
 void fatal(const char *format, ...)
 {
-	fprintf(stderr, "[FATAL] ");
+	fprintf(stderr, "[FATAL] BloCade: ");
 
 	va_list ap;
 	va_start(ap, format);

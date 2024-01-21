@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# finds optimal --min-size value for bloc
+
+target="blc"
+
+# remove files on exit
+trap 'rm -f "$file".bloc "$file".bloc."$target"; exit 0' EXIT SIGINT SIGTERM
+
+if [ $# -eq 0 ]; then
+	echo "Usage: $0 <file>"
+	exit 1
+fi
+
+file=$1
+
+function try {
+	bloc --from-blc -i "$file" -o "$file".bloc -m "$1"
+	blocade -i "$file".bloc -t "$target" -o "$file".bloc."$target"
+	size="$(stat -c %s "$file".bloc."$target")"
+}
+
+low=5
+high=100000
+best=100000000000000000
+while [ $low -lt $high ]; do
+	mid=$(((low + high) / 2))
+	try $mid
+	echo "$mid: $size"
+	if [ "$size" -le $best ]; then
+		best=$size
+		high=$((mid - 1))
+	else
+		low=$((mid + 1))
+	fi
+done

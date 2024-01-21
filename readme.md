@@ -22,7 +22,7 @@ benchmarking, or general term optimization.
 ## Benchmarks
 
 Some deliberately unoptimized test cases from `test/`, evaluated using
-`./run` and measured in bits:
+`./run` and measured in bits (using `bloc -m 10 ...`):
 
 | file          | bloc | unbblc/orig | bblc  |
 |:--------------|:-----|:------------|:------|
@@ -54,3 +54,17 @@ resolving the dependencies would also help.
 | file       | bloc | unbblc/orig | bblc    |
 |:-----------|:-----|:------------|:--------|
 | lambda-8cc | 5.13 | 40.72       | 3267.88 |
+
+## Optimization
+
+You can use BLoC’s minimum tree size deduplication parameter
+`--min-size`/`-m` to generate even smaller files. The `optimize` bash
+script tries to find the optimal parameter for your target file using a
+binary search.
+
+For example, 8cc’s optimal parameter for the bblc target is `-m 4587`,
+only marginally reducing the original size:
+
+| file       | bloc | unbblc/orig | bblc  |
+|:-----------|:-----|:------------|:------|
+| lambda-8cc | 5.8  | 40.72       | 40.65 |

@@ -30,6 +30,7 @@ compile: $(BUILD) $(OBJS) $(BUILD)/blocade
 
 clean:
 	@rm -rf $(BUILD)/*
+	@rm -f $(SRC)/cmdline.*
 
 install:
 	@install -m 755 $(BUILD)/blocade $(DESTDIR)$(PREFIX)/bin/
